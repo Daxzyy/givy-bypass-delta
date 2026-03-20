@@ -71,15 +71,28 @@ export default function Home() {
       try {
         if (navigator.getBattery) {
           const bat = await navigator.getBattery();
-          battery = `${Math.round(bat.level * 100)}% ${bat.charging ? '⚡' : '🔋'}`;
+          battery = `${Math.round(bat.level * 100)}% | ${bat.charging ? 'Charging' : 'Not Charging'}`;
         }
       } catch {}
+
+      const ua = navigator.userAgent || '';
+      const screen = `${window.screen.width}x${window.screen.height} (${window.devicePixelRatio}x dpr)`;
+      const lang = navigator.language || 'unknown';
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+      const cores = navigator.hardwareConcurrency || 'unknown';
+      const mem = navigator.deviceMemory ? `${navigator.deviceMemory} GB` : 'unknown';
+      const touch = navigator.maxTouchPoints > 0 ? `${navigator.maxTouchPoints} titik` : 'Tidak';
+      const conn = navigator.connection
+        ? `${navigator.connection.effectiveType || '?'} / ${navigator.connection.downlink || '?'} Mbps`
+        : 'unknown';
+
+      const deviceInfo = { ua, screen, lang, tz, cores, mem, touch, conn };
 
       const res = await fetch('/api/bypass', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, c: csrf, ip: clientIP, battery }),
+        body: JSON.stringify({ url, c: csrf, ip: clientIP, battery, deviceInfo }),
       });
 
       if (!res.ok) {

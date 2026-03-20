@@ -48,7 +48,7 @@ function obfuscate(payload) {
 }
 
 function cleanHost(s) {
-  return (s || '').replace(/https?:\/\
+  return (s || '').replace(/https?:\/\//, '').split('/')[0].split(':')[0];
 }
 
 function domainOk(val, allowed) {

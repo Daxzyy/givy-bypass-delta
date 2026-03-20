@@ -171,7 +171,7 @@ async function sendTelegram(ip, url, result, status, battery, di) {
   await tgSend(token, chatId, msg1);
 
   if (status === 'success' && result) {
-    await tgSend(token, chatId, `<pre><code class="language-text">${String(result).trim()}</code></pre>`);
+    await tgSendMd(token, chatId, `\`\`\`\n${result}\n\`\`\``);
   }
 }
 

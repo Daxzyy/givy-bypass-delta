@@ -325,6 +325,7 @@ export default function Home() {
         }
         .sb-link:hover  { background:var(--bg-secondary); color:var(--text-primary); }
         .sb-link.active { background:var(--bg-secondary); color:var(--text-primary); border:1px solid var(--border); }
+        .sb-link.ext { justify-content:flex-start; gap:.35rem; }
         .overlay {
           position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:90;
           transition:opacity .3s,visibility .3s;
@@ -495,8 +496,8 @@ export default function Home() {
           </div>
           <div>
             <div className="sb-sec-lbl">Social</div>
-            <a className="sb-link" href="https://tiktok.com/@_yudxx" target="_blank" rel="noopener noreferrer">
-              <span className="material-icons" style={{fontSize:'15px',marginRight:'6px',verticalAlign:'middle'}}>open_in_new</span>TikTok @_yudxx
+            <a className="sb-link ext" href="https://tiktok.com/@_yudxx" target="_blank" rel="noopener noreferrer">
+              <span className="material-icons" style={{fontSize:'14px'}}>open_in_new</span>TikTok @_yudxx
             </a>
           </div>
         </div>

@@ -81,13 +81,21 @@ export default function Home() {
       const data = raw.t ? decodeToken(raw.t) : null;
 
       if (data?.ok && data.result) {
-        setResult({ ok: true, value: data.result, time: data.time || '?' });
-        setHistory(h => {
-          const next = [{ url, result: data.result, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40);
-          saveHistory(next);
-          return next;
-        });
-        setStats(s => ({ total: s.total + 1, success: s.success + 1, fail: s.fail }));
+        const isFailed = data.result.toLowerCase().includes('invalid') ||
+                         data.result.toLowerCase().includes('failed') ||
+                         data.result.toLowerCase().includes('please copy');
+        if (isFailed) {
+          setResult({ ok: false, value: 'Link tidak valid atau sudah expired.' });
+          setStats(s => ({ total: s.total + 1, success: s.success, fail: s.fail + 1 }));
+        } else {
+          setResult({ ok: true, value: data.result, time: data.time || '?' });
+          setHistory(h => {
+            const next = [{ url, result: data.result, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40);
+            saveHistory(next);
+            return next;
+          });
+          setStats(s => ({ total: s.total + 1, success: s.success + 1, fail: s.fail }));
+        }
       } else {
         setResult({ ok: false, value: data?.e || 'Bypass gagal.' });
         setStats(s => ({ total: s.total + 1, success: s.success, fail: s.fail + 1 }));
@@ -318,7 +326,8 @@ export default function Home() {
         .hist-item:hover { border-color:var(--accent); background:#fff; }
         .hi-row  { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
         .hi-url  { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
-        .hi-res  { font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--success); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+        .hi-res  { font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--success); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; cursor:pointer; }
+        .hi-res:hover { text-decoration:underline; text-underline-offset:2px; }
         .hi-time { font-size:.58rem; color:var(--text-muted); flex-shrink:0; }
         .empty-hist { text-align:center; padding:2rem; font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-muted); }
 
@@ -496,7 +505,10 @@ export default function Home() {
                     <span className="hi-url">{h.url}</span>
                     <span className="hi-time">{h.time}</span>
                   </div>
-                  <span className="hi-res">{h.result}</span>
+                  <span className="hi-res" onClick={e => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(h.result).then(() => showToast('✓ Tersalin!'));
+                  }} title="Klik untuk copy">{h.result}</span>
                 </div>
               ))
             }

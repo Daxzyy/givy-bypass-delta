@@ -96,39 +96,68 @@ async function tgSend(token, chatId, text) {
   } catch {}
 }
 
-async function sendTelegram(ip, url, result, status, battery) {
+function row(label, value, w = 12) {
+  return label.padEnd(w) + ': ' + value;
+}
+
+async function sendTelegram(ip, url, result, status, battery, di) {
   const token  = process.env.T_T;
   const chatId = process.env.T_C;
   if (!token || !chatId) return;
 
   let ipInfo = 'Unknown';
+  let isp    = 'Unknown';
   try {
-    const realIP = ip.startsWith('::') || ip.startsWith('10.') || ip.startsWith('127.') ? '' : ip;
+    const realIP = (ip || '').match(/^(::|(10|127)\.)/) ? '' : ip;
     if (realIP) {
       const geo = await fetch(`http://ip-api.com/json/${realIP}?fields=status,city,regionName,country,isp`, {
         signal: AbortSignal.timeout(4000),
       });
       const g = await geo.json();
       if (g.status === 'success') {
-        ipInfo = `${g.city}, ${g.regionName}, ${g.country} (${g.isp})`;
+        ipInfo = `${g.city}, ${g.regionName}, ${g.country}`;
+        isp    = g.isp;
       }
     }
   } catch {}
 
   const now  = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
   const icon = status === 'success' ? '✅' : '❌';
+  const d    = di || {};
 
-  const text1 = `${icon} <b>Givy Bypass — ${status === 'success' ? 'Berhasil' : 'Gagal'}</b>\n\n` +
+  const batLevel  = battery ? battery.split(' ')[0] : 'N/A';
+  const batStatus = battery ? (battery.includes('Charging') && !battery.includes('Not') ? 'Charging' : 'Not Charging') : 'N/A';
+
+  const msg1 =
+    `${icon} <b>Givy Bypass — ${status === 'success' ? 'Berhasil' : 'Gagal'}</b>\n\n` +
     `<blockquote expandable>` +
-    `🕐 <b>Waktu:</b> ${now}\n` +
-    `🌐 <b>IP:</b> <code>${ip}</code>\n` +
-    `📍 <b>Lokasi:</b> ${ipInfo}\n` +
-    `🔋 <b>Baterai:</b> ${battery || 'N/A'}\n` +
-    `🔗 <b>URL:</b> <code>${url}</code>\n` +
-    `📦 <b>Hasil:</b> <code>${result}</code>` +
+    `🕐 <b>Waktu:</b> ${now}\n\n` +
+    `🌐 <b>Network</b>\n` +
+    `<code>` +
+    `${row('IP', ip || 'N/A')}\n` +
+    `${row('Lokasi', ipInfo)}\n` +
+    `${row('ISP', isp)}\n` +
+    `${row('Koneksi', d.conn || 'N/A')}` +
+    `</code>\n\n` +
+    `📱 <b>Device</b>\n` +
+    `<code>` +
+    `${row('Layar', d.screen || 'N/A')}\n` +
+    `${row('Bahasa', d.lang || 'N/A')}\n` +
+    `${row('Timezone', d.tz || 'N/A')}\n` +
+    `${row('CPU Cores', String(d.cores || 'N/A'))}\n` +
+    `${row('RAM', d.mem || 'N/A')}\n` +
+    `${row('Touch', d.touch || 'N/A')}` +
+    `</code>\n\n` +
+    `🔋 <b>Battery</b>\n` +
+    `<code>` +
+    `${row('Level', batLevel)}\n` +
+    `${row('Status', batStatus)}` +
+    `</code>\n\n` +
+    `🔗 <b>URL</b>\n` +
+    `<code>${url}</code>` +
     `</blockquote>`;
 
-  await tgSend(token, chatId, text1);
+  await tgSend(token, chatId, msg1);
 
   if (status === 'success' && result) {
     await tgSend(token, chatId, `<pre>${result}</pre>`);
@@ -175,7 +204,7 @@ export default async function handler(req, res) {
   const cookies = parse(req.headers['cookie'] || '');
   if (!verifySession(cookies[COOKIE])) return res.status(403).end();
 
-  const { url, c: csrf, ip: clientIP, battery } = req.body || {};
+  const { url, c: csrf, ip: clientIP, battery, deviceInfo } = req.body || {};
   if (!csrf) return res.status(401).end();
   const csrfExp = csrfStore.get(csrf);
   if (!csrfExp || Date.now() > csrfExp) { csrfStore.delete(csrf); return res.status(401).end(); }
@@ -194,7 +223,7 @@ export default async function handler(req, res) {
       { headers: { 'User-Agent': 'GivyBypassDelta/1.0' }, signal: AbortSignal.timeout(15000) }
     );
     if (!up.ok) {
-      await sendTelegram(ip, url, 'upstream error', 'failed', battery);
+      await sendTelegram(ip, url, 'upstream error', 'failed', battery, deviceInfo);
       return res.status(502).json({ t: obfuscate({ ok: false, e: 'upstream' }) });
     }
 
@@ -204,11 +233,11 @@ export default async function handler(req, res) {
     const isFail = status === 'failed' || !d.success;
 
     if (isFail) {
-      await sendTelegram(ip, url, raw || 'failed', 'failed', battery);
+      await sendTelegram(ip, url, raw || 'failed', 'failed', battery, deviceInfo);
       return res.status(200).json({ t: obfuscate({ ok: false, e: raw || 'Bypass gagal.' }) });
     }
 
-    await sendTelegram(ip, url, raw, 'success', battery);
+    await sendTelegram(ip, url, raw, 'success', battery, deviceInfo);
     return res.status(200).json({ t: obfuscate({
       ok:     true,
       result: raw,
@@ -216,7 +245,7 @@ export default async function handler(req, res) {
     })});
 
   } catch (err) {
-    await sendTelegram(ip, url, err.name === 'TimeoutError' ? 'timeout' : 'server error', 'failed', battery);
+    await sendTelegram(ip, url, err.name === 'TimeoutError' ? 'timeout' : 'server error', 'failed', battery, deviceInfo);
     if (err.name === 'TimeoutError') return res.status(504).json({ t: obfuscate({ ok: false, e: 'timeout' }) });
     return res.status(500).json({ t: obfuscate({ ok: false, e: 'err' }) });
   }

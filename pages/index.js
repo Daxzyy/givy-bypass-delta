@@ -12,6 +12,15 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const inputRef = useRef(null);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('givy-history');
+    if (saved) { try { setHistory(JSON.parse(saved)); } catch {} }
+  }, []);
+
+  function saveHistory(h) {
+    localStorage.setItem('givy-history', JSON.stringify(h));
+  }
+
   function showToast(msg) {
     const id = Date.now();
     setToasts(t => [...t, { id, msg }]);
@@ -66,7 +75,11 @@ export default function Home() {
 
       if (data?.ok && data.result) {
         setResult({ ok: true, value: data.result, time: data.time || '?' });
-        setHistory(h => [{ url, result: data.result, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40));
+        setHistory(h => {
+          const next = [{ url, result: data.result, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40);
+          saveHistory(next);
+          return next;
+        });
         setStats(s => ({ total: s.total + 1, success: s.success + 1, fail: s.fail }));
       } else {
         setResult({ ok: false, value: data?.e || 'Bypass gagal.' });
@@ -102,6 +115,7 @@ export default function Home() {
       </Head>
 
       <style>{`
+        /* ── Variables ─────────────────────────────── */
         :root {
           --bg-primary:   #ffffff;
           --bg-secondary: #f8f8f8;
@@ -124,7 +138,10 @@ export default function Home() {
           --shadow-lg: 0 10px 15px rgba(0,0,0,.1);
         }
 
+        /* ── Reset ──────────────────────────────────── */
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        *:focus{outline:none;}
+        button,a{-webkit-tap-highlight-color:transparent;}
         html{scroll-behavior:smooth;}
         body {
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -134,6 +151,7 @@ export default function Home() {
           line-height: 1.6;
         }
 
+        /* ── Grid background ────────────────────────── */
         .bg-grid {
           position: fixed; inset: 0; z-index: 0; pointer-events: none;
           background-image:
@@ -142,6 +160,7 @@ export default function Home() {
           background-size: 50px 50px;
         }
 
+        /* ── Header ─────────────────────────────────── */
         .hdr {
           position: sticky; top: 0; z-index: 10;
           background: rgba(255,255,255,.9);
@@ -171,8 +190,10 @@ export default function Home() {
         }
         .icon-btn:hover { border-color: var(--accent); background: var(--bg-secondary); }
 
+        /* ── Main ───────────────────────────────────── */
         .main { max-width: 720px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; position: relative; z-index: 1; }
 
+        /* ── Card base ──────────────────────────────── */
         .card {
           background: var(--bg-card);
           border: 1px solid var(--border);
@@ -188,6 +209,7 @@ export default function Home() {
         }
         .card-label::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--text-muted); flex-shrink:0; }
 
+        /* ── Input row ──────────────────────────────── */
         .inp-row { display: flex; gap: .625rem; margin-bottom: .875rem; }
         .url-inp {
           flex: 1; min-width: 0;
@@ -212,6 +234,7 @@ export default function Home() {
         .bypass-btn:active:not(:disabled) { transform: scale(.97); }
         .bypass-btn:disabled { opacity: .45; cursor: not-allowed; }
 
+        /* ── Result box ─────────────────────────────── */
         .result-box {
           border-radius: 10px; border: 1px solid var(--border); background: var(--bg-secondary);
           padding: .875rem 1rem; min-height: 56px; transition: border-color .25s, background .25s;
@@ -240,6 +263,7 @@ export default function Home() {
         }
         .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
 
+        /* ── Stats ──────────────────────────────────── */
         .stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.625rem; margin-bottom:.875rem; }
         .stat-card {
           background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
@@ -250,6 +274,7 @@ export default function Home() {
         .stat-num { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:700; color:var(--text-primary); display:block; }
         .stat-lbl { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted); margin-top:.2rem; }
 
+        /* ── History ────────────────────────────────── */
         .section-card {
           background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
           padding:1.25rem 1.5rem; box-shadow:var(--shadow-lg);
@@ -259,17 +284,20 @@ export default function Home() {
         .hist-list::-webkit-scrollbar { width:3px; }
         .hist-list::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
         .hist-item {
-          display:flex; align-items:center; gap:.625rem;
+          display:flex; flex-direction:column; gap:.25rem;
           background:var(--bg-secondary); border:1px solid var(--border-light);
-          border-radius:8px; padding:.55rem .875rem; cursor:pointer;
-          transition:border-color .2s, transform .15s;
+          border-radius:8px; padding:.6rem .875rem; cursor:pointer;
+          transition:border-color .2s, background .2s;
+          -webkit-tap-highlight-color: transparent;
         }
-        .hist-item:hover { border-color:var(--accent); transform:translateX(2px); }
-        .hi-url  { flex:1; font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .hi-res  { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--success); max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0; }
+        .hist-item:hover { border-color:var(--accent); background:#fff; }
+        .hi-row  { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+        .hi-url  { font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+        .hi-res  { font-family:'JetBrains Mono',monospace; font-size:.7rem; color:var(--success); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
         .hi-time { font-size:.58rem; color:var(--text-muted); flex-shrink:0; }
         .empty-hist { text-align:center; padding:2rem; font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-muted); }
 
+        /* ── Sidebar ────────────────────────────────── */
         .sidebar {
           position:fixed; top:0; right:0; height:100%; width:235px; z-index:100;
           background:var(--bg-card); border-left:1px solid var(--border);
@@ -302,6 +330,7 @@ export default function Home() {
           transition:opacity .3s,visibility .3s;
         }
 
+        /* ── Footer ─────────────────────────────────── */
         footer {
           text-align:center; padding:1.1rem;
           background:rgba(255,255,255,.95); border-top:1px solid var(--border);
@@ -310,6 +339,7 @@ export default function Home() {
           position:relative; z-index:1;
         }
 
+        /* ── Toast ──────────────────────────────────── */
         .toast-wrap { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; align-items:center; gap:.4rem; pointer-events:none; }
         .toast {
           background:var(--accent); border:1px solid var(--accent);
@@ -318,6 +348,7 @@ export default function Home() {
           white-space:nowrap; animation:toastIn .3s ease both;
         }
 
+        /* ── Animations ─────────────────────────────── */
         @keyframes spin     { to{transform:rotate(360deg)} }
         @keyframes dotpulse { 0%,100%{opacity:1}50%{opacity:.25} }
         @keyframes fadeUp   { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
@@ -327,6 +358,7 @@ export default function Home() {
         .anim-3 { animation:fadeUp .4s .16s ease both; }
         .spin-anim { animation:spin .65s linear infinite; }
 
+        /* ── Responsive ─────────────────────────────── */
         @media(max-width:520px){
           .inp-row{flex-direction:column;}
           .stat-num{font-size:1.2rem;}
@@ -336,6 +368,7 @@ export default function Home() {
           .sidebar{transform:translateX(0)!important;}
         }
 
+        /* ── Scrollbar ──────────────────────────────── */
         ::-webkit-scrollbar{width:6px;height:6px;}
         ::-webkit-scrollbar-track{background:var(--bg-secondary);}
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -421,16 +454,18 @@ export default function Home() {
         <div className="section-card anim-3">
           <div className="sec-hdr">
             <div className="card-label" style={{ margin: 0 }}>History</div>
-            <button className="copy-btn" onClick={() => { setHistory([]); showToast('History dihapus'); }}>Clear</button>
+            <button className="copy-btn" onClick={() => { setHistory([]); localStorage.removeItem('givy-history'); showToast('History dihapus'); }}>Clear</button>
           </div>
           <div className="hist-list">
             {history.length === 0
               ? <div className="empty-hist">Belum ada history...</div>
               : history.map((h, i) => (
                 <div className="hist-item" key={i} onClick={() => setUrl(h.url)}>
-                  <span className="hi-url">{h.url}</span>
+                  <div className="hi-row">
+                    <span className="hi-url">{h.url}</span>
+                    <span className="hi-time">{h.time}</span>
+                  </div>
                   <span className="hi-res">{h.result}</span>
-                  <span className="hi-time">{h.time}</span>
                 </div>
               ))
             }
@@ -456,6 +491,12 @@ export default function Home() {
             <div className="sb-sec-lbl">Dashboard</div>
             <a className="sb-link active" href="/">
               Home <i className="fa-solid fa-chevron-left fa-xs" />
+            </a>
+          </div>
+          <div>
+            <div className="sb-sec-lbl">Social</div>
+            <a className="sb-link" href="https://tiktok.com/@_yudxx" target="_blank" rel="noopener noreferrer">
+              <span className="material-icons" style={{fontSize:'15px',marginRight:'6px',verticalAlign:'middle'}}>open_in_new</span>TikTok @_yudxx
             </a>
           </div>
         </div>

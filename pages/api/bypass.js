@@ -171,7 +171,7 @@ async function sendTelegram(ip, url, result, status, battery, di) {
   await tgSend(token, chatId, msg1);
 
   if (status === 'success' && result) {
-    await tgSendMd(token, chatId, `\`\`\`\n${result}\n\`\`\``);
+    await tgSend(token, chatId, `<pre><code class="language-text">${String(result).trim()}</code></pre>`);
   }
 }
 
@@ -227,7 +227,7 @@ export default async function handler(req, res) {
   if (!url) return res.status(400).end();
   try { new URL(url); } catch { return res.status(400).end(); }
 
-  const KEY = process.env.BYPASS_API_KEY || 'freeApikey';
+  const KEY = process.env.BYPASS_API_KEY;
   try {
     const up = await fetch(
       `https://anabot.my.id/api/tools/izenLOL?url=${encodeURIComponent(url)}&apikey=${KEY}`,

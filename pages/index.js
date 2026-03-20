@@ -227,15 +227,24 @@ export default function Home() {
 
         /* ── Input row ──────────────────────────────── */
         .inp-row { display: flex; gap: .625rem; margin-bottom: .875rem; }
+        .inp-wrap { position: relative; flex: 1; min-width: 0; }
         .url-inp {
-          flex: 1; min-width: 0;
+          width: 100%;
           background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px;
-          padding: .7rem 1rem; color: var(--text-primary);
+          padding: .7rem 2.5rem .7rem 1rem; color: var(--text-primary);
           font-family: 'JetBrains Mono', monospace; font-size: .8rem; outline: none;
           transition: border-color .2s, box-shadow .2s;
         }
         .url-inp:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,0,0,.06); outline: none; }
         .url-inp::placeholder { color: var(--text-muted); }
+        .paste-btn {
+          position: absolute; right: .45rem; top: 50%; transform: translateY(-50%);
+          background: none; border: none; padding: .25rem;
+          color: var(--text-muted); cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          border-radius: 6px; transition: color .2s, background .2s;
+        }
+        .paste-btn:hover { color: var(--accent); background: rgba(0,0,0,.05); }
 
         .bypass-btn {
           flex-shrink: 0;
@@ -249,14 +258,6 @@ export default function Home() {
         .bypass-btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
         .bypass-btn:active:not(:disabled) { transform: scale(.97); }
         .bypass-btn:disabled { opacity: .45; cursor: not-allowed; }
-        .paste-btn {
-          flex-shrink: 0;
-          background: var(--bg-secondary); color: var(--text-muted);
-          border: 1px solid var(--border); border-radius: 10px;
-          width: 42px; display: flex; align-items: center; justify-content: center;
-          cursor: pointer; transition: border-color .2s, color .2s, background .2s;
-        }
-        .paste-btn:hover { border-color: var(--accent); color: var(--accent); background: #fff; }
 
         /* ── Result box ─────────────────────────────── */
         .result-box {
@@ -423,20 +424,22 @@ export default function Home() {
         <div className="card anim-1">
           <div className="card-label">Bypass URL</div>
           <div className="inp-row">
-            <input
-              ref={inputRef}
-              className="url-inp"
-              type="url"
-              placeholder="https://auth.platorelay.com/a?d=..."
-              value={url}
-              onChange={e => setUrl(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && doBypass()}
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <button className="paste-btn" onClick={pasteUrl} title="Paste URL">
-              <span className="material-icons" style={{fontSize:'18px'}}>content_paste</span>
-            </button>
+            <div className="inp-wrap">
+              <input
+                ref={inputRef}
+                className="url-inp"
+                type="url"
+                placeholder="https://auth.platorelay.com/a?d=..."
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && doBypass()}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button className="paste-btn" onClick={pasteUrl} title="Paste">
+                <span className="material-icons" style={{fontSize:'17px'}}>content_paste</span>
+              </button>
+            </div>
             <button className="bypass-btn" onClick={doBypass} disabled={loading}>
               <i className={`fa-solid ${loading ? 'fa-spinner spin-anim' : 'fa-bolt'}`} />
               <span>{loading ? 'Loading...' : 'Bypass'}</span>
@@ -523,8 +526,8 @@ export default function Home() {
           </div>
           <div>
             <div className="sb-sec-lbl">Social</div>
-            <a className="sb-link ext" href="https://tiktok.com/@Givy" target="_blank" rel="noopener noreferrer">
-              <span className="material-icons" style={{fontSize:'14px'}}>open_in_new</span>TikTok @Givy
+            <a className="sb-link ext" href="https://tiktok.com/@_yudxx" target="_blank" rel="noopener noreferrer">
+              <span className="material-icons" style={{fontSize:'14px'}}>open_in_new</span>TikTok @givy
             </a>
           </div>
         </div>

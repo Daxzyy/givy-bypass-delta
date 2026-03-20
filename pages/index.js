@@ -18,19 +18,17 @@ export default function Home() {
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 2300);
   }
 
-  // ── Decoder: pasangan xorEncode di server ──────────────────
+  // ── Decoder ─────────────────────────────────────────────────
   function decodeToken(token) {
     try {
       const parts = token.split('.');
       if (parts.length < 4) return null;
-      const key  = parts[1].split('').reverse().join('');
-      const b64  = parts[2];
-      const bin  = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
+      const key   = parts[1].split('').reverse().join('');
+      const bin   = atob(parts[2].replace(/-/g, '+').replace(/_/g, '/'));
       const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
       let str = '';
-      for (let i = 0; i < bytes.length; i++) {
+      for (let i = 0; i < bytes.length; i++)
         str += String.fromCharCode(bytes[i] ^ key.charCodeAt(i % key.length));
-      }
       return JSON.parse(str);
     } catch { return null; }
   }
@@ -44,15 +42,37 @@ export default function Home() {
     setResult(null);
 
     try {
-      const res  = await fetch('/api/bypass?url=' + encodeURIComponent(url));
+      // Step 1: ambil CSRF token 1x-pakai dari server
+      const csrfRes = await fetch('/api/bypass?action=csrf');
+      if (!csrfRes.ok) throw new Error('csrf_fail');
+      const { c: csrfToken } = await csrfRes.json();
+
+      // Step 2: POST dengan secret header + CSRF token + URL
+      const res = await fetch('/api/bypass', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Givy-Req': process.env.NEXT_PUBLIC_GIVY_SECRET || '',
+        },
+        body: JSON.stringify({ url, c: csrfToken }),
+      });
+
+      if (!res.ok) {
+        const msg = res.status === 429 ? 'Terlalu banyak request, tunggu sebentar.'
+                  : res.status === 403 ? 'Akses ditolak.'
+                  : 'Server error ' + res.status;
+        setResult({ ok: false, value: msg });
+        setStats(s => ({ total: s.total + 1, success: s.success, fail: s.fail + 1 }));
+        setLoading(false);
+        return;
+      }
+
       const raw  = await res.json();
       const data = raw.t ? decodeToken(raw.t) : null;
 
       if (data?.ok && data.result) {
-        const val  = data.result;
-        const time = data.time || '?';
-        setResult({ ok: true, value: val, time });
-        setHistory(h => [{ url, result: val, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40));
+        setResult({ ok: true, value: data.result, time: data.time || '?' });
+        setHistory(h => [{ url, result: data.result, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40));
         setStats(s => ({ total: s.total + 1, success: s.success + 1, fail: s.fail }));
       } else {
         setResult({ ok: false, value: data?.e || 'Bypass gagal.' });

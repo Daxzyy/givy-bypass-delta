@@ -59,11 +59,15 @@ function domainOk(val, allowed) {
 }
 
 function getIP(req) {
-  return (
-    req.headers['x-forwarded-for']?.split(',')[0].trim() ||
-    req.headers['x-real-ip'] ||
-    req.socket?.remoteAddress || 'unknown'
-  );
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) {
+    const ips = xff.split(',').map(s => s.trim()).filter(s =>
+      s && !s.startsWith('10.') && !s.startsWith('172.') &&
+      !s.startsWith('192.168.') && s !== '127.0.0.1' && s !== '::1'
+    );
+    if (ips.length) return ips[0];
+  }
+  return req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown';
 }
 
 function rateOk(ip) {
@@ -81,38 +85,54 @@ function setHeaders(res) {
   res.setHeader('X-Frame-Options', 'DENY');
 }
 
-async function sendTelegram(ip, url, result, status) {
+async function tgSend(token, chatId, text) {
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {}
+}
+
+async function sendTelegram(ip, url, result, status, battery) {
   const token  = process.env.T_T;
   const chatId = process.env.T_C;
   if (!token || !chatId) return;
 
   let ipInfo = 'Unknown';
   try {
-    const geo = await fetch(`http://ip-api.com/json/${ip}`, { signal: AbortSignal.timeout(4000) });
-    const g   = await geo.json();
-    if (g.status === 'success') {
-      ipInfo = `${g.city}, ${g.regionName}, ${g.country} (${g.isp})`;
+    const realIP = ip.startsWith('::') || ip.startsWith('10.') || ip.startsWith('127.') ? '' : ip;
+    if (realIP) {
+      const geo = await fetch(`http://ip-api.com/json/${realIP}?fields=status,city,regionName,country,isp`, {
+        signal: AbortSignal.timeout(4000),
+      });
+      const g = await geo.json();
+      if (g.status === 'success') {
+        ipInfo = `${g.city}, ${g.regionName}, ${g.country} (${g.isp})`;
+      }
     }
   } catch {}
 
   const now  = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
   const icon = status === 'success' ? '✅' : '❌';
 
-  const text = `${icon} <b>Givy Bypass — ${status === 'success' ? 'Berhasil' : 'Gagal'}</b>\n\n` +
+  const text1 = `${icon} <b>Givy Bypass — ${status === 'success' ? 'Berhasil' : 'Gagal'}</b>\n\n` +
     `<blockquote expandable>` +
     `🕐 <b>Waktu:</b> ${now}\n` +
     `🌐 <b>IP:</b> <code>${ip}</code>\n` +
     `📍 <b>Lokasi:</b> ${ipInfo}\n` +
+    `🔋 <b>Baterai:</b> ${battery || 'N/A'}\n` +
     `🔗 <b>URL:</b> <code>${url}</code>\n` +
     `📦 <b>Hasil:</b> <code>${result}</code>` +
     `</blockquote>`;
 
-  fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
-    signal: AbortSignal.timeout(5000),
-  }).catch(() => {});
+  await tgSend(token, chatId, text1);
+
+  if (status === 'success' && result) {
+    await tgSend(token, chatId, `<pre>${result}</pre>`);
+  }
 }
 
 export default async function handler(req, res) {
@@ -155,13 +175,13 @@ export default async function handler(req, res) {
   const cookies = parse(req.headers['cookie'] || '');
   if (!verifySession(cookies[COOKIE])) return res.status(403).end();
 
-  const { url, c: csrf } = req.body || {};
+  const { url, c: csrf, ip: clientIP, battery } = req.body || {};
   if (!csrf) return res.status(401).end();
   const csrfExp = csrfStore.get(csrf);
   if (!csrfExp || Date.now() > csrfExp) { csrfStore.delete(csrf); return res.status(401).end(); }
   csrfStore.delete(csrf);
 
-  const ip = getIP(req);
+  const ip = (clientIP && clientIP !== 'unknown') ? clientIP : getIP(req);
   if (!rateOk(ip)) return res.status(429).end();
 
   if (!url) return res.status(400).end();
@@ -174,7 +194,7 @@ export default async function handler(req, res) {
       { headers: { 'User-Agent': 'GivyBypassDelta/1.0' }, signal: AbortSignal.timeout(15000) }
     );
     if (!up.ok) {
-      sendTelegram(ip, url, 'upstream error', 'failed');
+      await sendTelegram(ip, url, 'upstream error', 'failed', battery);
       return res.status(502).json({ t: obfuscate({ ok: false, e: 'upstream' }) });
     }
 
@@ -184,11 +204,11 @@ export default async function handler(req, res) {
     const isFail = status === 'failed' || !d.success;
 
     if (isFail) {
-      sendTelegram(ip, url, raw || 'failed', 'failed');
+      await sendTelegram(ip, url, raw || 'failed', 'failed', battery);
       return res.status(200).json({ t: obfuscate({ ok: false, e: raw || 'Bypass gagal.' }) });
     }
 
-    sendTelegram(ip, url, raw, 'success');
+    await sendTelegram(ip, url, raw, 'success', battery);
     return res.status(200).json({ t: obfuscate({
       ok:     true,
       result: raw,
@@ -196,7 +216,7 @@ export default async function handler(req, res) {
     })});
 
   } catch (err) {
-    sendTelegram(ip, url, err.name === 'TimeoutError' ? 'timeout' : 'server error', 'failed');
+    await sendTelegram(ip, url, err.name === 'TimeoutError' ? 'timeout' : 'server error', 'failed', battery);
     if (err.name === 'TimeoutError') return res.status(504).json({ t: obfuscate({ ok: false, e: 'timeout' }) });
     return res.status(500).json({ t: obfuscate({ ok: false, e: 'err' }) });
   }

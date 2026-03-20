@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Serve index.html as static page via public folder
-  // API routes handled in pages/api/
+  env: {
+    // GIVY_SECRET di-inject ke frontend saat build dari Vercel Env Vars
+    NEXT_PUBLIC_GIVY_SECRET: process.env.GIVY_SECRET || '',
+  },
 };
-
 module.exports = nextConfig;

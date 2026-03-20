@@ -81,23 +81,20 @@ export default function Home() {
       const data = raw.t ? decodeToken(raw.t) : null;
 
       if (data?.ok && data.result) {
-        const isFailed = data.result.toLowerCase().includes('invalid') ||
-                         data.result.toLowerCase().includes('failed') ||
-                         data.result.toLowerCase().includes('please copy');
-        if (isFailed) {
-          setResult({ ok: false, value: 'Link tidak valid atau sudah expired.' });
-          setStats(s => ({ total: s.total + 1, success: s.success, fail: s.fail + 1 }));
-        } else {
-          setResult({ ok: true, value: data.result, time: data.time || '?' });
-          setHistory(h => {
-            const next = [{ url, result: data.result, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40);
-            saveHistory(next);
-            return next;
-          });
-          setStats(s => ({ total: s.total + 1, success: s.success + 1, fail: s.fail }));
-        }
+        setResult({ ok: true, value: data.result, time: data.time || '?' });
+        setHistory(h => {
+          const next = [{ url, result: data.result, time: new Date().toLocaleTimeString() }, ...h].slice(0, 40);
+          saveHistory(next);
+          return next;
+        });
+        setStats(s => ({ total: s.total + 1, success: s.success + 1, fail: s.fail }));
       } else {
-        setResult({ ok: false, value: data?.e || 'Bypass gagal.' });
+        const errMsg = data?.e
+          ? (data.e.toLowerCase().includes('expired') ? 'Link sudah expired, ambil link baru.' :
+             data.e.toLowerCase().includes('invalid') ? 'Link tidak valid.' :
+             data.e)
+          : 'Bypass gagal.';
+        setResult({ ok: false, value: errMsg });
         setStats(s => ({ total: s.total + 1, success: s.success, fail: s.fail + 1 }));
       }
     } catch (e) {
@@ -368,7 +365,7 @@ export default function Home() {
         /* ── Footer ─────────────────────────────────── */
         footer {
           text-align:center; padding:1.1rem;
-          background:rgba(255,255,255,.95); border-top:1px solid var(--border);
+          border-top:1px solid var(--border);
           font-size:.62rem; font-weight:700; text-transform:uppercase;
           letter-spacing:.1em; color:var(--text-muted);
           position:relative; z-index:1;

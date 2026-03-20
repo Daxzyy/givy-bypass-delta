@@ -96,6 +96,17 @@ async function tgSend(token, chatId, text) {
   } catch {}
 }
 
+async function tgSendMd(token, chatId, text) {
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'MarkdownV2' }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {}
+}
+
 function row(label, value, w = 12) {
   return label.padEnd(w) + ': ' + value;
 }
@@ -160,7 +171,7 @@ async function sendTelegram(ip, url, result, status, battery, di) {
   await tgSend(token, chatId, msg1);
 
   if (status === 'success' && result) {
-    await tgSend(token, chatId, `<pre>${result}</pre>`);
+    await tgSendMd(token, chatId, `\`\`\`\n${result}\n\`\`\``);
   }
 }
 

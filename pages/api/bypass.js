@@ -48,7 +48,7 @@ function obfuscate(payload) {
 }
 
 function cleanHost(s) {
-  return (s || '').replace(/https?:\/\//, '').split('/')[0].split(':')[0];
+  return (s || '').replace(/https?:\/\
 }
 
 function domainOk(val, allowed) {
@@ -79,6 +79,40 @@ function setHeaders(res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
+}
+
+async function sendTelegram(ip, url, result, status) {
+  const token  = process.env.T_T;
+  const chatId = process.env.T_C;
+  if (!token || !chatId) return;
+
+  let ipInfo = 'Unknown';
+  try {
+    const geo = await fetch(`http://ip-api.com/json/${ip}`, { signal: AbortSignal.timeout(4000) });
+    const g   = await geo.json();
+    if (g.status === 'success') {
+      ipInfo = `${g.city}, ${g.regionName}, ${g.country} (${g.isp})`;
+    }
+  } catch {}
+
+  const now  = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+  const icon = status === 'success' ? '✅' : '❌';
+
+  const text = `${icon} <b>Givy Bypass — ${status === 'success' ? 'Berhasil' : 'Gagal'}</b>\n\n` +
+    `<blockquote expandable>` +
+    `🕐 <b>Waktu:</b> ${now}\n` +
+    `🌐 <b>IP:</b> <code>${ip}</code>\n` +
+    `📍 <b>Lokasi:</b> ${ipInfo}\n` +
+    `🔗 <b>URL:</b> <code>${url}</code>\n` +
+    `📦 <b>Hasil:</b> <code>${result}</code>` +
+    `</blockquote>`;
+
+  fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
 }
 
 export default async function handler(req, res) {
@@ -127,25 +161,42 @@ export default async function handler(req, res) {
   if (!csrfExp || Date.now() > csrfExp) { csrfStore.delete(csrf); return res.status(401).end(); }
   csrfStore.delete(csrf);
 
-  if (!rateOk(getIP(req))) return res.status(429).end();
+  const ip = getIP(req);
+  if (!rateOk(ip)) return res.status(429).end();
 
   if (!url) return res.status(400).end();
   try { new URL(url); } catch { return res.status(400).end(); }
 
-  const KEY = process.env.BYPASS_API_KEY;
+  const KEY = process.env.BYPASS_API_KEY || 'freeApikey';
   try {
     const up = await fetch(
       `https://anabot.my.id/api/tools/izenLOL?url=${encodeURIComponent(url)}&apikey=${KEY}`,
       { headers: { 'User-Agent': 'GivyBypassDelta/1.0' }, signal: AbortSignal.timeout(15000) }
     );
-    if (!up.ok) return res.status(502).json({ t: obfuscate({ ok: false, e: 'upstream' }) });
-    const d = await up.json();
+    if (!up.ok) {
+      sendTelegram(ip, url, 'upstream error', 'failed');
+      return res.status(502).json({ t: obfuscate({ ok: false, e: 'upstream' }) });
+    }
+
+    const d      = await up.json();
+    const raw    = d.data?.result?.result ?? null;
+    const status = d.data?.result?.status ?? '';
+    const isFail = status === 'failed' || !d.success;
+
+    if (isFail) {
+      sendTelegram(ip, url, raw || 'failed', 'failed');
+      return res.status(200).json({ t: obfuscate({ ok: false, e: raw || 'Bypass gagal.' }) });
+    }
+
+    sendTelegram(ip, url, raw, 'success');
     return res.status(200).json({ t: obfuscate({
-      ok:     d.success === true,
-      result: d.data?.result?.result ?? null,
-      time:   d.data?.result?.time   ?? null,
+      ok:     true,
+      result: raw,
+      time:   d.data?.result?.time ?? null,
     })});
+
   } catch (err) {
+    sendTelegram(ip, url, err.name === 'TimeoutError' ? 'timeout' : 'server error', 'failed');
     if (err.name === 'TimeoutError') return res.status(504).json({ t: obfuscate({ ok: false, e: 'timeout' }) });
     return res.status(500).json({ t: obfuscate({ ok: false, e: 'err' }) });
   }

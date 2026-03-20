@@ -9,6 +9,7 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [copied, setCopied] = useState(false);
   const inputRef = useRef(null);
 
   function showToast(msg) {
@@ -81,7 +82,10 @@ export default function Home() {
 
   function copyResult() {
     if (!result?.value) return;
-    navigator.clipboard.writeText(result.value).then(() => showToast('✓ Tersalin!'));
+    navigator.clipboard.writeText(result.value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
   }
 
   return (
@@ -93,10 +97,11 @@ export default function Home() {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+        <link rel="icon" href="/delta.jpg" />
       </Head>
 
       <style>{`
-        /* ── Variables ─────────────────────────────── */
         :root {
           --bg-primary:   #ffffff;
           --bg-secondary: #f8f8f8;
@@ -119,7 +124,6 @@ export default function Home() {
           --shadow-lg: 0 10px 15px rgba(0,0,0,.1);
         }
 
-        /* ── Reset ──────────────────────────────────── */
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
         html{scroll-behavior:smooth;}
         body {
@@ -130,7 +134,6 @@ export default function Home() {
           line-height: 1.6;
         }
 
-        /* ── Grid background ────────────────────────── */
         .bg-grid {
           position: fixed; inset: 0; z-index: 0; pointer-events: none;
           background-image:
@@ -139,7 +142,6 @@ export default function Home() {
           background-size: 50px 50px;
         }
 
-        /* ── Header ─────────────────────────────────── */
         .hdr {
           position: sticky; top: 0; z-index: 10;
           background: rgba(255,255,255,.9);
@@ -152,11 +154,10 @@ export default function Home() {
           display: flex; align-items: center; justify-content: space-between; gap: 1rem;
         }
         .logo { display: flex; align-items: center; gap: .625rem; text-decoration: none; }
-        .logo-icon {
+        .logo-img {
           width: 36px; height: 36px; border-radius: 9px;
-          background: var(--bg-secondary); border: 1px solid var(--border);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 1rem; flex-shrink: 0;
+          object-fit: cover; flex-shrink: 0;
+          border: 1px solid var(--border);
         }
         .logo-text { font-size: 1.05rem; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
         .logo-sub  { font-size: .58rem; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; }
@@ -170,10 +171,8 @@ export default function Home() {
         }
         .icon-btn:hover { border-color: var(--accent); background: var(--bg-secondary); }
 
-        /* ── Main ───────────────────────────────────── */
         .main { max-width: 720px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; position: relative; z-index: 1; }
 
-        /* ── Card base ──────────────────────────────── */
         .card {
           background: var(--bg-card);
           border: 1px solid var(--border);
@@ -189,7 +188,6 @@ export default function Home() {
         }
         .card-label::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--text-muted); flex-shrink:0; }
 
-        /* ── Input row ──────────────────────────────── */
         .inp-row { display: flex; gap: .625rem; margin-bottom: .875rem; }
         .url-inp {
           flex: 1; min-width: 0;
@@ -198,7 +196,7 @@ export default function Home() {
           font-family: 'JetBrains Mono', monospace; font-size: .8rem; outline: none;
           transition: border-color .2s, box-shadow .2s;
         }
-        .url-inp:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,0,0,.06); }
+        .url-inp:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,0,0,.06); outline: none; }
         .url-inp::placeholder { color: var(--text-muted); }
 
         .bypass-btn {
@@ -214,7 +212,6 @@ export default function Home() {
         .bypass-btn:active:not(:disabled) { transform: scale(.97); }
         .bypass-btn:disabled { opacity: .45; cursor: not-allowed; }
 
-        /* ── Result box ─────────────────────────────── */
         .result-box {
           border-radius: 10px; border: 1px solid var(--border); background: var(--bg-secondary);
           padding: .875rem 1rem; min-height: 56px; transition: border-color .25s, background .25s;
@@ -243,7 +240,6 @@ export default function Home() {
         }
         .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
 
-        /* ── Stats ──────────────────────────────────── */
         .stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.625rem; margin-bottom:.875rem; }
         .stat-card {
           background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
@@ -254,7 +250,6 @@ export default function Home() {
         .stat-num { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:700; color:var(--text-primary); display:block; }
         .stat-lbl { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted); margin-top:.2rem; }
 
-        /* ── History ────────────────────────────────── */
         .section-card {
           background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
           padding:1.25rem 1.5rem; box-shadow:var(--shadow-lg);
@@ -275,7 +270,6 @@ export default function Home() {
         .hi-time { font-size:.58rem; color:var(--text-muted); flex-shrink:0; }
         .empty-hist { text-align:center; padding:2rem; font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-muted); }
 
-        /* ── Sidebar ────────────────────────────────── */
         .sidebar {
           position:fixed; top:0; right:0; height:100%; width:235px; z-index:100;
           background:var(--bg-card); border-left:1px solid var(--border);
@@ -308,7 +302,6 @@ export default function Home() {
           transition:opacity .3s,visibility .3s;
         }
 
-        /* ── Footer ─────────────────────────────────── */
         footer {
           text-align:center; padding:1.1rem;
           background:rgba(255,255,255,.95); border-top:1px solid var(--border);
@@ -317,7 +310,6 @@ export default function Home() {
           position:relative; z-index:1;
         }
 
-        /* ── Toast ──────────────────────────────────── */
         .toast-wrap { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; align-items:center; gap:.4rem; pointer-events:none; }
         .toast {
           background:var(--accent); border:1px solid var(--accent);
@@ -326,7 +318,6 @@ export default function Home() {
           white-space:nowrap; animation:toastIn .3s ease both;
         }
 
-        /* ── Animations ─────────────────────────────── */
         @keyframes spin     { to{transform:rotate(360deg)} }
         @keyframes dotpulse { 0%,100%{opacity:1}50%{opacity:.25} }
         @keyframes fadeUp   { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
@@ -336,7 +327,6 @@ export default function Home() {
         .anim-3 { animation:fadeUp .4s .16s ease both; }
         .spin-anim { animation:spin .65s linear infinite; }
 
-        /* ── Responsive ─────────────────────────────── */
         @media(max-width:520px){
           .inp-row{flex-direction:column;}
           .stat-num{font-size:1.2rem;}
@@ -346,21 +336,18 @@ export default function Home() {
           .sidebar{transform:translateX(0)!important;}
         }
 
-        /* ── Scrollbar ──────────────────────────────── */
         ::-webkit-scrollbar{width:6px;height:6px;}
         ::-webkit-scrollbar-track{background:var(--bg-secondary);}
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
         ::-webkit-scrollbar-thumb:hover{background:var(--text-muted);}
 `}</style>
 
-      {/* Black grid background */}
       <div className="bg-grid" />
 
-      {/* Header */}
       <header className="hdr">
         <div className="hdr-inner">
           <a className="logo" href="/">
-            <div className="logo-icon">⚡</div>
+            <img src="/delta.jpg" alt="Delta" className="logo-img" />
             <div>
               <div className="logo-text">Givy Bypass</div>
               <div className="logo-sub">Delta v1.0</div>
@@ -374,9 +361,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main */}
       <main className="main">
-        {/* Bypass card */}
         <div className="card anim-1">
           <div className="card-label">Bypass URL</div>
           <div className="inp-row">
@@ -384,7 +369,7 @@ export default function Home() {
               ref={inputRef}
               className="url-inp"
               type="url"
-              placeholder="https://target-url.com/..."
+              placeholder="https://auth.platorelay.com/a?d=..."
               value={url}
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && doBypass()}
@@ -397,7 +382,6 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Result box */}
           <div className={`result-box${result ? (result.ok ? ' ok' : ' err') : ''}`}>
             <div className="result-hdr">
               <div className="result-status">
@@ -407,7 +391,10 @@ export default function Home() {
                 </span>
               </div>
               {result?.ok && (
-                <button className="copy-btn" onClick={copyResult}>Copy</button>
+                <button className="copy-btn" onClick={copyResult}>
+                  <span className="material-icons" style={{fontSize:'14px',verticalAlign:'middle',marginRight:'3px'}}>{copied ? 'check' : 'content_copy'}</span>
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
               )}
             </div>
             {loading ? (
@@ -422,7 +409,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stats */}
         <div className="stats-grid anim-2">
           {[['Total', stats.total], ['Success', stats.success], ['Failed', stats.fail]].map(([lbl, val]) => (
             <div className="stat-card" key={lbl}>
@@ -432,7 +418,6 @@ export default function Home() {
           ))}
         </div>
 
-        {/* History */}
         <div className="section-card anim-3">
           <div className="sec-hdr">
             <div className="card-label" style={{ margin: 0 }}>History</div>
@@ -455,12 +440,10 @@ export default function Home() {
 
       <footer>© 2026 Givy Bypass Delta</footer>
 
-      {/* Sidebar overlay */}
       {sidebarOpen && (
         <div className="overlay" style={{ opacity: 1, visibility: 'visible' }} onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
         <div className="sb-top">
           <span className="sb-title">#GivyBypass</span>
@@ -478,7 +461,6 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* Toasts */}
       <div className="toast-wrap">
         {toasts.map(t => <div className="toast" key={t.id}>{t.msg}</div>)}
       </div>

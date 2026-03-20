@@ -1,22 +1,36 @@
-// pages/api/bypass.js
-// ════════════════════════════════════════════════════
-//  PROTEKSI 4 LAPIS:
-//  1. Origin/Referer wajib dari domain sendiri
-//  2. Secret header X-Givy-Req wajib match env var
-//  3. CSRF token 1x-pakai (dapet dari GET ?action=csrf)
-//  4. Rate limit 12 req/menit per IP
-// ════════════════════════════════════════════════════
+import { serialize, parse } from 'cookie';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 const csrfStore = new Map();
 const rateStore = new Map();
-const CSRF_TTL   = 90_000;
-const RATE_LIMIT = 12;
-const RATE_WIN   = 60_000;
+const CSRF_TTL  = 90_000;
+const RATE_MAX  = 12;
+const RATE_WIN  = 60_000;
+const COOKIE    = '__gsid';
 
-function makeKey(len = 20) {
+function rand(n = 24) {
+  return randomBytes(n).toString('base64url');
+}
+
+function signSession(id) {
+  const secret = process.env.COOKIE_SECRET || 'changeme';
+  return createHmac('sha256', secret).update(id).digest('base64url');
+}
+
+function verifySession(cookie) {
+  if (!cookie) return false;
+  const [id, sig] = cookie.split('.');
+  if (!id || !sig) return false;
+  const expected = Buffer.from(signSession(id));
+  const actual   = Buffer.from(sig);
+  if (expected.length !== actual.length) return false;
+  return timingSafeEqual(expected, actual);
+}
+
+function makeKey(n = 20) {
   const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let k = '';
-  for (let i = 0; i < len; i++) k += c[Math.floor(Math.random() * c.length)];
+  for (let i = 0; i < n; i++) k += c[Math.floor(Math.random() * c.length)];
   return k;
 }
 
@@ -37,9 +51,9 @@ function cleanHost(s) {
   return (s || '').replace(/https?:\/\//, '').split('/')[0].split(':')[0];
 }
 
-function domainMatch(headerVal, allowed) {
-  if (!headerVal) return false;
-  const h = cleanHost(headerVal);
+function domainOk(val, allowed) {
+  if (!val) return false;
+  const h = cleanHost(val);
   const a = cleanHost(allowed);
   return h === a || h.endsWith('.' + a);
 }
@@ -55,67 +69,81 @@ function getIP(req) {
 function rateOk(ip) {
   const now = Date.now();
   const e   = rateStore.get(ip);
-  if (!e || now > e.resetAt) { rateStore.set(ip, { count: 1, resetAt: now + RATE_WIN }); return true; }
-  if (e.count >= RATE_LIMIT) return false;
-  e.count++;
+  if (!e || now > e.r) { rateStore.set(ip, { n: 1, r: now + RATE_WIN }); return true; }
+  if (e.n >= RATE_MAX) return false;
+  e.n++;
   return true;
 }
 
-export default async function handler(req, res) {
+function setHeaders(res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+}
+
+export default async function handler(req, res) {
+  setHeaders(res);
 
   const host    = req.headers['host']    || '';
   const origin  = req.headers['origin']  || '';
   const referer = req.headers['referer'] || '';
+  const sf      = req.headers['sec-fetch-site'] || '';
   const ALLOWED = process.env.ALLOWED_DOMAIN || host;
 
-  // ── CSRF token issuer ─────────────────────────────
-  if (req.method === 'GET' && req.query.action === 'csrf') {
-    if (!domainMatch(origin, ALLOWED) && !domainMatch(referer, ALLOWED)) return res.status(403).end();
-    const token = makeKey(32);
-    csrfStore.set(token, Date.now() + CSRF_TTL);
+  if (req.method === 'GET' && req.query.action === 'init') {
+    if (sf !== 'same-origin' && sf !== 'same-site' && sf !== '') return res.status(403).end();
+    if (!domainOk(origin, ALLOWED) && !domainOk(referer, ALLOWED)) return res.status(403).end();
+
+    const id  = rand(18);
+    const sig = signSession(id);
+    const val = `${id}.${sig}`;
+
+    const csrf = rand(24);
+    csrfStore.set(csrf, Date.now() + CSRF_TTL);
     for (const [k, exp] of csrfStore) { if (Date.now() > exp) csrfStore.delete(k); }
-    return res.status(200).json({ c: token });
+
+    res.setHeader('Set-Cookie', serialize(COOKIE, val, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      path: '/api/bypass',
+      maxAge: 300,
+    }));
+
+    return res.status(200).json({ c: csrf });
   }
 
-  // ── Hanya POST ────────────────────────────────────
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Layer 1: Origin/Referer
-  if (!domainMatch(origin, ALLOWED) && !domainMatch(referer, ALLOWED)) return res.status(403).end();
+  if (sf && sf !== 'same-origin' && sf !== 'same-site') return res.status(403).end();
+  if (!domainOk(origin, ALLOWED) && !domainOk(referer, ALLOWED)) return res.status(403).end();
 
-  // Layer 2: Secret header
-  const SECRET = process.env.GIVY_SECRET || '';
-  if (!SECRET || req.headers['x-givy-req'] !== SECRET) return res.status(403).end();
+  const cookies = parse(req.headers['cookie'] || '');
+  if (!verifySession(cookies[COOKIE])) return res.status(403).end();
 
-  // Layer 3: CSRF
   const { url, c: csrf } = req.body || {};
   if (!csrf) return res.status(401).end();
   const csrfExp = csrfStore.get(csrf);
   if (!csrfExp || Date.now() > csrfExp) { csrfStore.delete(csrf); return res.status(401).end(); }
   csrfStore.delete(csrf);
 
-  // Layer 4: Rate limit
   if (!rateOk(getIP(req))) return res.status(429).end();
 
-  // Validasi URL
   if (!url) return res.status(400).end();
   try { new URL(url); } catch { return res.status(400).end(); }
 
-  // Fetch upstream
-  const API_KEY  = process.env.BYPASS_API_KEY || 'freeApikey';
+  const KEY = process.env.BYPASS_API_KEY;
   try {
     const up = await fetch(
-      `https://anabot.my.id/api/tools/izenLOL?url=${encodeURIComponent(url)}&apikey=${API_KEY}`,
+      `https://anabot.my.id/api/tools/izenLOL?url=${encodeURIComponent(url)}&apikey=${KEY}`,
       { headers: { 'User-Agent': 'GivyBypassDelta/1.0' }, signal: AbortSignal.timeout(15000) }
     );
     if (!up.ok) return res.status(502).json({ t: obfuscate({ ok: false, e: 'upstream' }) });
-    const data = await up.json();
+    const d = await up.json();
     return res.status(200).json({ t: obfuscate({
-      ok: data.success === true,
-      result: data.data?.result?.result ?? null,
-      time:   data.data?.result?.time   ?? null,
+      ok:     d.success === true,
+      result: d.data?.result?.result ?? null,
+      time:   d.data?.result?.time   ?? null,
     })});
   } catch (err) {
     if (err.name === 'TimeoutError') return res.status(504).json({ t: obfuscate({ ok: false, e: 'timeout' }) });

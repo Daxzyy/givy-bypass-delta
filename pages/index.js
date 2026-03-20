@@ -10,6 +10,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -43,7 +44,13 @@ export default function Home() {
 
   async function doBypass() {
     if (!url.trim()) { showToast('⚠ URL tidak boleh kosong'); return; }
-    try { new URL(url); } catch { showToast('⚠ URL tidak valid'); return; }
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname !== 'auth.platorelay.com') {
+        showToast('⚠ URL tidak valid');
+        return;
+      }
+    } catch { showToast('⚠ URL tidak valid'); return; }
 
     setLoading(true);
     setResult(null);
@@ -101,10 +108,19 @@ export default function Home() {
     });
   }
 
+  async function pasteUrl() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text.trim()) setUrl(text.trim());
+    } catch {
+      showToast('⚠ Izin clipboard ditolak');
+    }
+  }
+
   return (
     <>
       <Head>
-        <title>Givy Bypass Delta</title>
+        <title>Givy Bypass</title>
         <meta name="description" content="Bypass link cepat, aman, dan gratis." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -233,6 +249,14 @@ export default function Home() {
         .bypass-btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
         .bypass-btn:active:not(:disabled) { transform: scale(.97); }
         .bypass-btn:disabled { opacity: .45; cursor: not-allowed; }
+        .paste-btn {
+          flex-shrink: 0;
+          background: var(--bg-secondary); color: var(--text-muted);
+          border: 1px solid var(--border); border-radius: 10px;
+          width: 42px; display: flex; align-items: center; justify-content: center;
+          cursor: pointer; transition: border-color .2s, color .2s, background .2s;
+        }
+        .paste-btn:hover { border-color: var(--accent); color: var(--accent); background: #fff; }
 
         /* ── Result box ─────────────────────────────── */
         .result-box {
@@ -384,7 +408,7 @@ export default function Home() {
             <img src="/delta.jpg" alt="Delta" className="logo-img" />
             <div>
               <div className="logo-text">Givy Bypass</div>
-              <div className="logo-sub">Delta v1.0</div>
+              <div className="logo-sub">v2.0</div>
             </div>
           </a>
           <div className="hdr-actions">
@@ -410,6 +434,9 @@ export default function Home() {
               autoComplete="off"
               spellCheck={false}
             />
+            <button className="paste-btn" onClick={pasteUrl} title="Paste URL">
+              <span className="material-icons" style={{fontSize:'18px'}}>content_paste</span>
+            </button>
             <button className="bypass-btn" onClick={doBypass} disabled={loading}>
               <i className={`fa-solid ${loading ? 'fa-spinner spin-anim' : 'fa-bolt'}`} />
               <span>{loading ? 'Loading...' : 'Bypass'}</span>
@@ -474,7 +501,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer>© 2026 Givy Bypass Delta</footer>
+      <footer>© 2026 Givy Bypass</footer>
 
       {sidebarOpen && (
         <div className="overlay" style={{ opacity: 1, visibility: 'visible' }} onClick={() => setSidebarOpen(false)} />
@@ -496,8 +523,8 @@ export default function Home() {
           </div>
           <div>
             <div className="sb-sec-lbl">Social</div>
-            <a className="sb-link ext" href="https://tiktok.com/@_yudxx" target="_blank" rel="noopener noreferrer">
-              <span className="material-icons" style={{fontSize:'14px'}}>open_in_new</span>TikTok @_yudxx
+            <a className="sb-link ext" href="https://tiktok.com/@Givy" target="_blank" rel="noopener noreferrer">
+              <span className="material-icons" style={{fontSize:'14px'}}>open_in_new</span>TikTok @Givy
             </a>
           </div>
         </div>

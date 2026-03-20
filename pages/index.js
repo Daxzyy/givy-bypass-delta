@@ -60,11 +60,26 @@ export default function Home() {
       if (!initRes.ok) throw new Error('init_fail');
       const { c: csrf } = await initRes.json();
 
+      let clientIP = 'unknown';
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+        const ipData = await ipRes.json();
+        clientIP = ipData.ip || 'unknown';
+      } catch {}
+
+      let battery = 'N/A';
+      try {
+        if (navigator.getBattery) {
+          const bat = await navigator.getBattery();
+          battery = `${Math.round(bat.level * 100)}% ${bat.charging ? '⚡' : '🔋'}`;
+        }
+      } catch {}
+
       const res = await fetch('/api/bypass', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, c: csrf }),
+        body: JSON.stringify({ url, c: csrf, ip: clientIP, battery }),
       });
 
       if (!res.ok) {

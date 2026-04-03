@@ -1,6 +1,8 @@
 import Head from 'next/head';
 import { useState, useEffect, useRef } from 'react';
 
+const CF_WORKER = 'https://bypassdelta.ganisayudha.workers.dev';
+
 export default function Home() {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,7 +58,7 @@ export default function Home() {
     setResult(null);
 
     try {
-      const initRes = await fetch('/api/bypass?action=init', { credentials: 'same-origin' });
+      const initRes = await fetch(`${CF_WORKER}/init`, { credentials: 'include' });
       if (!initRes.ok) throw new Error('init_fail');
       const { c: csrf } = await initRes.json();
 
@@ -88,9 +90,9 @@ export default function Home() {
 
       const deviceInfo = { ua, screen, lang, tz, cores, mem, touch, conn };
 
-      const res = await fetch('/api/bypass', {
+      const res = await fetch(`${CF_WORKER}/bypass`, {
         method: 'POST',
-        credentials: 'same-origin',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, c: csrf, ip: clientIP, battery, deviceInfo }),
       });
@@ -164,7 +166,6 @@ export default function Home() {
       </Head>
 
       <style>{`
-        /* ── Variables ─────────────────────────────── */
         :root {
           --bg-primary:   #ffffff;
           --bg-secondary: #f8f8f8;
@@ -186,8 +187,6 @@ export default function Home() {
           --shadow-md: 0 4px 6px rgba(0,0,0,.1);
           --shadow-lg: 0 10px 15px rgba(0,0,0,.1);
         }
-
-        /* ── Reset ──────────────────────────────────── */
         *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
         *:focus{outline:none;}
         button,a{-webkit-tap-highlight-color:transparent;}
@@ -199,8 +198,6 @@ export default function Home() {
           min-height: 100vh;
           line-height: 1.6;
         }
-
-        /* ── Grid background ────────────────────────── */
         .bg-grid {
           position: fixed; inset: 0; z-index: 0; pointer-events: none;
           background-image:
@@ -208,8 +205,6 @@ export default function Home() {
             linear-gradient(90deg, rgba(0,0,0,.08) 1px, transparent 1px);
           background-size: 50px 50px;
         }
-
-        /* ── Header ─────────────────────────────────── */
         .hdr {
           position: sticky; top: 0; z-index: 10;
           background: rgba(255,255,255,.9);
@@ -238,11 +233,7 @@ export default function Home() {
           font-size: .85rem; transition: border-color .2s, background .2s;
         }
         .icon-btn:hover { border-color: var(--accent); background: var(--bg-secondary); }
-
-        /* ── Main ───────────────────────────────────── */
         .main { max-width: 720px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; position: relative; z-index: 1; }
-
-        /* ── Card base ──────────────────────────────── */
         .card {
           background: var(--bg-card);
           border: 1px solid var(--border);
@@ -257,8 +248,6 @@ export default function Home() {
           margin-bottom: .875rem; display: flex; align-items: center; gap: .4rem;
         }
         .card-label::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--text-muted); flex-shrink:0; }
-
-        /* ── Input row ──────────────────────────────── */
         .inp-row { display: flex; gap: .625rem; margin-bottom: .875rem; }
         .inp-wrap { position: relative; flex: 1; min-width: 0; }
         .url-inp {
@@ -278,7 +267,6 @@ export default function Home() {
           border-radius: 6px; transition: color .2s, background .2s;
         }
         .paste-btn:hover { color: var(--accent); background: rgba(0,0,0,.05); }
-
         .bypass-btn {
           flex-shrink: 0;
           background: var(--accent); color: #fff;
@@ -291,8 +279,6 @@ export default function Home() {
         .bypass-btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
         .bypass-btn:active:not(:disabled) { transform: scale(.97); }
         .bypass-btn:disabled { opacity: .45; cursor: not-allowed; }
-
-        /* ── Result box ─────────────────────────────── */
         .result-box {
           border-radius: 10px; border: 1px solid var(--border); background: var(--bg-secondary);
           padding: .875rem 1rem; min-height: 56px; transition: border-color .25s, background .25s;
@@ -320,8 +306,6 @@ export default function Home() {
           cursor:pointer; transition:all .2s;
         }
         .copy-btn:hover { border-color:var(--accent); color:var(--accent); }
-
-        /* ── Stats ──────────────────────────────────── */
         .stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.625rem; margin-bottom:.875rem; }
         .stat-card {
           background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
@@ -331,8 +315,6 @@ export default function Home() {
         .stat-card:hover { border-color:var(--accent); box-shadow:var(--shadow-md); transform:translateY(-2px); }
         .stat-num { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:700; color:var(--text-primary); display:block; }
         .stat-lbl { font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted); margin-top:.2rem; }
-
-        /* ── History ────────────────────────────────── */
         .section-card {
           background:var(--bg-card); border:1px solid var(--border); border-radius:20px;
           padding:1.25rem 1.5rem; box-shadow:var(--shadow-lg);
@@ -355,8 +337,6 @@ export default function Home() {
         .hi-res:hover { text-decoration:underline; text-underline-offset:2px; }
         .hi-time { font-size:.58rem; color:var(--text-muted); flex-shrink:0; }
         .empty-hist { text-align:center; padding:2rem; font-family:'JetBrains Mono',monospace; font-size:.72rem; color:var(--text-muted); }
-
-        /* ── Sidebar ────────────────────────────────── */
         .sidebar {
           position:fixed; top:0; right:0; height:100%; width:235px; z-index:100;
           background:var(--bg-card); border-left:1px solid var(--border);
@@ -389,8 +369,6 @@ export default function Home() {
           position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:90;
           transition:opacity .3s,visibility .3s;
         }
-
-        /* ── Footer ─────────────────────────────────── */
         footer {
           text-align:center; padding:1.1rem;
           border-top:1px solid var(--border);
@@ -398,8 +376,6 @@ export default function Home() {
           letter-spacing:.1em; color:var(--text-muted);
           position:relative; z-index:1;
         }
-
-        /* ── Toast ──────────────────────────────────── */
         .toast-wrap { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; align-items:center; gap:.4rem; pointer-events:none; }
         .toast {
           background:var(--accent); border:1px solid var(--accent);
@@ -407,8 +383,6 @@ export default function Home() {
           font-size:.75rem; font-weight:600; box-shadow:var(--shadow-lg);
           white-space:nowrap; animation:toastIn .3s ease both;
         }
-
-        /* ── Animations ─────────────────────────────── */
         @keyframes spin     { to{transform:rotate(360deg)} }
         @keyframes dotpulse { 0%,100%{opacity:1}50%{opacity:.25} }
         @keyframes fadeUp   { from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)} }
@@ -417,8 +391,6 @@ export default function Home() {
         .anim-2 { animation:fadeUp .4s .08s ease both; }
         .anim-3 { animation:fadeUp .4s .16s ease both; }
         .spin-anim { animation:spin .65s linear infinite; }
-
-        /* ── Responsive ─────────────────────────────── */
         @media(max-width:520px){
           .inp-row{flex-direction:column;}
           .stat-num{font-size:1.2rem;}
@@ -427,13 +399,11 @@ export default function Home() {
         @media(min-width:768px){
           .sidebar{transform:translateX(0)!important;}
         }
-
-        /* ── Scrollbar ──────────────────────────────── */
         ::-webkit-scrollbar{width:6px;height:6px;}
         ::-webkit-scrollbar-track{background:var(--bg-secondary);}
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
         ::-webkit-scrollbar-thumb:hover{background:var(--text-muted);}
-`}</style>
+      `}</style>
 
       <div className="bg-grid" />
 
